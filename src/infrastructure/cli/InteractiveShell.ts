@@ -42,6 +42,13 @@ export class InteractiveShell {
 
     // Main REPL loop
     return new Promise((resolve) => {
+      // Handle Ctrl+C gracefully - register once at the start
+      this.rl!.on('SIGINT', () => {
+        console.log('\n\nInterrupted. Goodbye!\n');
+        this.rl?.close();
+        resolve();
+      });
+
       this.promptAndProcess(resolve);
     });
   }
@@ -76,13 +83,6 @@ export class InteractiveShell {
 
       // Continue the loop
       this.promptAndProcess(onExit);
-    });
-
-    // Handle Ctrl+C gracefully
-    this.rl.on('SIGINT', () => {
-      console.log('\n\nInterrupted. Goodbye!\n');
-      this.rl?.close();
-      onExit();
     });
   }
 }
