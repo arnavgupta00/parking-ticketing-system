@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+# bin/parking_lot - Main executable for the Parking Lot System
+#
+# Usage:
+#   bin/parking_lot              - Launch interactive shell
+#   bin/parking_lot <filename>   - Process commands from file
+#
+# This script runs the compiled JavaScript. Make sure to run
+# bin/setup first to compile the code.
+
+# Determine script directory to find project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Check if the compiled code exists
+if [ ! -f "$PROJECT_ROOT/dist/index.js" ]; then
+    echo "Error: Project not compiled. Please run 'bin/setup' first."
+    exit 1
+fi
+
+# Run the application with Node.js, passing all arguments
+node "$PROJECT_ROOT/dist/index.js" "$@"
