@@ -66,6 +66,12 @@ export class ParkingLotService {
    * which corresponds to the "nearest" slot as per requirements.
    */
   park(registrationNumber: string, color: string): number | null {
+    // Check if this registration is already parked
+    if (this.registrationIndex.has(registrationNumber)) {
+      // Return -1 to indicate duplicate (special error case)
+      return -1;
+    }
+
     // No available slots? Lot is full.
     if (this.availableSlots.isEmpty()) {
       return null;

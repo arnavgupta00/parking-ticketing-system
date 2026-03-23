@@ -230,14 +230,11 @@ describe('Edge Cases', () => {
       processor.process('create_parking_lot 6');
     });
 
-    it('should allow same registration to park again (per user requirement)', () => {
+    it('should prevent parking same registration twice', () => {
       processor.process('park CAR-1 White');
-      processor.process('park CAR-1 White');  // Same car, different slot
+      const result = processor.process('park CAR-1 White');
       
-      // Both should be in the index? Actually per design, the registration
-      // index maps to latest slot. This tests the current behavior.
-      const result = processor.process('slot_number_for_registration_number CAR-1');
-      expect(result).toBe('2'); // Most recent parking
+      expect(result).toContain('already parked in slot 1');
     });
   });
 });

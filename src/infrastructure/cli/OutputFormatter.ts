@@ -43,6 +43,14 @@ export class OutputFormatter {
   }
 
   /**
+   * Formats the "duplicate registration" error message.
+   */
+  formatDuplicateRegistration(registrationNumber: string, existingSlot: number): string {
+    const message = `Car with registration ${registrationNumber} is already parked in slot ${existingSlot}`;
+    return this.useColors ? error(message) : message;
+  }
+
+  /**
    * Formats the "slot is free" message.
    */
   formatSlotFreed(slotNumber: number): string {

@@ -61,6 +61,14 @@ describe('ParkingLotService', () => {
       expect(service.park('EXTRA-CAR', 'White')).toBeNull();
     });
 
+    it('should return -1 for duplicate registration', () => {
+      service.park('CAR-1', 'White');
+      expect(service.park('CAR-1', 'Red')).toBe(-1);
+      
+      // Verify original car is still in slot 1
+      expect(service.getSlotNumberByRegistration('CAR-1')).toBe(1);
+    });
+
     it('should reuse freed slot (nearest first)', () => {
       // Fill slots 1-4
       service.park('CAR-1', 'White');

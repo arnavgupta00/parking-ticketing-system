@@ -116,6 +116,12 @@ export class CommandProcessor {
       return this.formatter.formatParkingLotFull();
     }
 
+    if (slotNumber === -1) {
+      // Duplicate registration - find existing slot
+      const existingSlot = this.parkingService.getSlotNumberByRegistration(registrationNumber);
+      return this.formatter.formatDuplicateRegistration(registrationNumber, existingSlot!);
+    }
+
     return this.formatter.formatSlotAllocated(slotNumber);
   }
 
