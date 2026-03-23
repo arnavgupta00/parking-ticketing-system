@@ -65,19 +65,25 @@ export class InteractiveShell {
       return;
     }
 
-    this.rl.question(this.formatter.formatPrompt(), (input) => {
+    this.rl.question(this.formatter.formatPrompt(), async (input) => {
       const result = this.commandProcessor.process(input);
 
-      // null result means exit
-      if (result === null) {
+      // Handle async commands (like load/run)
+      if (result instanceof Promise) {
+        const outputs = await result;
+        for (const output of outputs) {
+          if (output) {
+            console.log(output);
+          }
+        }
+      } else if (result === null) {
+        // null result means exit
         console.log('\nGoodbye! Drive safely. 🚗\n');
         this.rl?.close();
         onExit();
         return;
-      }
-
-      // Print output if not empty
-      if (result) {
+      } else if (result) {
+        // Print output if not empty
         console.log(result);
       }
 

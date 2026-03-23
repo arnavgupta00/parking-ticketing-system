@@ -171,6 +171,7 @@ export class OutputFormatter {
       ['registration_numbers_for_cars_with_colour <color>', 'Find registrations by color'],
       ['slot_numbers_for_cars_with_colour <color>', 'Find slots by color'],
       ['slot_number_for_registration_number <reg_no>', 'Find slot by registration'],
+      ['load <filename>', 'Execute commands from a file'],
       ['help', 'Show this help message'],
       ['exit', 'Exit the program'],
     ];

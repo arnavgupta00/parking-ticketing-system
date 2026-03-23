@@ -113,9 +113,10 @@ describe('Edge Cases', () => {
     it('should handle status on empty lot', () => {
       const result = processor.process('status');
       expect(result).not.toBeNull();
-      expect(result!).toContain('Slot No.');
+      expect(typeof result).toBe('string');
+      expect(result as string).toContain('Slot No.');
       // Should only have header, no car entries
-      const lines = result!.split('\n');
+      const lines = (result as string).split('\n');
       expect(lines).toHaveLength(1);
     });
 

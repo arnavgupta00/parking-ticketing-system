@@ -37,7 +37,8 @@ describe('Parking Lot Integration Tests', () => {
       // Status command output
       const statusOutput = processor.process('status');
       expect(statusOutput).not.toBeNull();
-      const lines = statusOutput!.split('\n');
+      expect(typeof statusOutput).toBe('string');
+      const lines = (statusOutput as string).split('\n');
       
       expect(lines[0]).toContain('Slot No.');
       expect(lines[0]).toContain('Registration No');

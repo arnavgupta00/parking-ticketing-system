@@ -1,5 +1,7 @@
 import { ParkingLotService } from '../domain/services/ParkingLotService';
 import { OutputFormatter } from '../infrastructure/cli/OutputFormatter';
+import * as fs from 'fs';
+import * as readline from 'readline';
 
 /**
  * CommandProcessor - Parses and executes parking lot commands.
@@ -27,9 +29,9 @@ export class CommandProcessor {
    * but arguments (like colors) are handled case-insensitively
    * where appropriate.
    * 
-   * @returns The formatted output, or null for exit command
+   * @returns The formatted output, null for exit command, or a Promise for async commands like load
    */
-  process(commandLine: string): string | null {
+  process(commandLine: string): string | null | Promise<string[]> {
     // Trim and skip empty lines
     const trimmed = commandLine.trim();
     if (!trimmed) {
@@ -63,6 +65,10 @@ export class CommandProcessor {
 
       case 'slot_number_for_registration_number':
         return this.handleSlotByRegistration(args);
+
+      case 'load':
+      case 'run':
+        return this.handleLoadFile(args);
 
       case 'help':
         return this.formatter.formatHelp();
@@ -214,5 +220,55 @@ export class CommandProcessor {
     const registration = args[0];
     const slot = this.parkingService.getSlotNumberByRegistration(registration);
     return this.formatter.formatSlotNumber(slot);
+  }
+
+  /**
+   * Handles: load <filename> or run <filename>
+   * 
+   * Loads and executes commands from a file while in interactive mode.
+   * This makes it easy to run batch operations without leaving the shell.
+   */
+  private async handleLoadFile(args: string[]): Promise<string[]> {
+    if (args.length < 1) {
+      return [this.formatter.formatError('Usage: load <filename>')];
+    }
+
+    const filePath = args[0];
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return [this.formatter.formatError(`File not found: ${filePath}`)];
+    }
+
+    const results: string[] = [];
+    const fileStream = fs.createReadStream(filePath);
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity,
+    });
+
+    try {
+      // Process each line from the file
+      for await (const line of rl) {
+        const result = this.process(line);
+
+        // Handle async results (nested load commands)
+        if (result instanceof Promise) {
+          const nestedResults = await result;
+          results.push(...nestedResults);
+        } else if (result === null) {
+          // Don't exit the shell when file contains 'exit'
+          // Just skip it
+          continue;
+        } else if (result) {
+          results.push(result);
+        }
+      }
+    } finally {
+      // Ensure readline is properly closed
+      rl.close();
+    }
+
+    return results;
   }
 }
