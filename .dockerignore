@@ -1,0 +1,10 @@
+# Docker ignore file - exclude unnecessary files from build context
+node_modules
+dist
+coverage
+.git
+.gitignore
+*.md
+*.log
+.env*
+.DS_Store

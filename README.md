@@ -15,6 +15,19 @@ $ bin/parking_lot file_inputs.txt
 $ bin/parking_lot
 ```
 
+## Docker Support
+
+```bash
+# Build the Docker image
+$ docker build -t parking_lot .
+
+# Run interactive mode
+$ docker run -it parking_lot
+
+# Run with a file (mount as volume)
+$ docker run -v $(pwd)/input.txt:/app/input.txt parking_lot input.txt
+```
+
 ## Features
 
 - **Automated Slot Allocation**: Always assigns the nearest available slot to the entrance
@@ -35,6 +48,7 @@ $ bin/parking_lot
 | `registration_numbers_for_cars_with_colour <color>` | Find all registrations by color |
 | `slot_numbers_for_cars_with_colour <color>` | Find all slots by color |
 | `slot_number_for_registration_number <reg_no>` | Find slot by registration |
+| `load <filename>` | Execute commands from a file |
 | `help` | Show available commands |
 | `exit` | Exit the program |
 
