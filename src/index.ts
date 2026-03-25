@@ -9,7 +9,7 @@
  *   node dist/index.js <file>       - File mode
  */
 
-import { ParkingLotService } from './domain/services/ParkingLotService';
+import { ParkingLotManager } from './domain/services/ParkingLotManager';
 import { CommandProcessor } from './application/CommandProcessor';
 import { OutputFormatter } from './infrastructure/cli/OutputFormatter';
 import { InteractiveShell } from './infrastructure/cli/InteractiveShell';
@@ -18,13 +18,13 @@ import { FileProcessor } from './infrastructure/cli/FileProcessor';
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   
-  // Create the parking lot service - this holds all our state
-  const parkingService = new ParkingLotService();
+  // Create the parking lot manager - this holds all our state
+  const manager = new ParkingLotManager();
 
   if (args.length === 0) {
     // Interactive mode - with colors!
     const formatter = new OutputFormatter(true);
-    const processor = new CommandProcessor(parkingService, formatter);
+    const processor = new CommandProcessor(manager, formatter);
     const shell = new InteractiveShell(processor, formatter);
     
     await shell.start();
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
     // File mode - no colors for clean output
     const filePath = args[0];
     const formatter = new OutputFormatter(false);
-    const processor = new CommandProcessor(parkingService, formatter);
+    const processor = new CommandProcessor(manager, formatter);
     const fileProcessor = new FileProcessor(processor);
     
     await fileProcessor.processFile(filePath);

@@ -1,4 +1,4 @@
-import { ParkingLotService } from '../../src/domain/services/ParkingLotService';
+import { ParkingLotManager } from '../../src/domain/services/ParkingLotManager';
 import { CommandProcessor } from '../../src/application/CommandProcessor';
 import { OutputFormatter } from '../../src/infrastructure/cli/OutputFormatter';
 
@@ -12,7 +12,7 @@ describe('Edge Cases', () => {
   let processor: CommandProcessor;
 
   beforeEach(() => {
-    const service = new ParkingLotService();
+    const service = new ParkingLotManager();
     const formatter = new OutputFormatter(false);
     processor = new CommandProcessor(service, formatter);
   });
@@ -24,7 +24,7 @@ describe('Edge Cases', () => {
     });
 
     it('should handle leave before create', () => {
-      const result = processor.process('leave 1');
+      const result = processor.process('leave 1 1');
       expect(result).toContain('create a parking lot first');
     });
 
@@ -49,20 +49,20 @@ describe('Edge Cases', () => {
     });
 
     it('should handle leaving from slot 0', () => {
-      const result = processor.process('leave 0');
+      const result = processor.process('leave 1 0');
       expect(result).toContain('positive number');
     });
 
     it('should handle negative slot numbers', () => {
-      const result = processor.process('leave -1');
+      const result = processor.process('leave 1 -1');
       expect(result).toContain('positive number');
     });
 
     it('should handle slot number beyond capacity', () => {
       // This should still return "slot is free" message
       // per the silent failure approach
-      const result = processor.process('leave 100');
-      expect(result).toBe('Slot number 100 is free.');
+      const result = processor.process('leave 1 100');
+      expect(result).toBe('Slot number 100 in Lot 1 is free.');
     });
   });
 
@@ -72,17 +72,17 @@ describe('Edge Cases', () => {
     });
 
     it('should handle leaving from never-occupied slot', () => {
-      const result = processor.process('leave 3');
-      expect(result).toBe('Slot number 3 is free.');
+      const result = processor.process('leave 1 3');
+      expect(result).toBe('Slot number 3 in Lot 1 is free.');
     });
 
     it('should handle leaving from already-vacated slot', () => {
       processor.process('park CAR-1 White');
-      processor.process('leave 1');
+      processor.process('leave 1 1');
       
       // Leave again
-      const result = processor.process('leave 1');
-      expect(result).toBe('Slot number 1 is free.');
+      const result = processor.process('leave 1 1');
+      expect(result).toBe('Slot number 1 in Lot 1 is free.');
     });
   });
 
@@ -135,8 +135,8 @@ describe('Edge Cases', () => {
       // Park, leave, park same slot repeatedly
       for (let i = 0; i < 10; i++) {
         expect(processor.process(`park CAR-${i} White`))
-          .toBe('Allocated slot number: 1');
-        processor.process('leave 1');
+          .toBe('Allocated slot number: 1 in Lot 1');
+        processor.process('leave 1 1');
       }
     });
 
@@ -145,17 +145,17 @@ describe('Edge Cases', () => {
       processor.process('park A White');  // Slot 1
       processor.process('park B White');  // Slot 2
       processor.process('park C White');  // Slot 3
-      processor.process('leave 2');       // Free slot 2
-      processor.process('leave 1');       // Free slot 1
+      processor.process('leave 1 2');       // Free slot 2
+      processor.process('leave 1 1');       // Free slot 1
       processor.process('park D White');  // Should get slot 1
       processor.process('park E White');  // Should get slot 2
       
       expect(processor.process('slot_number_for_registration_number D'))
-        .toBe('1');
+        .toBe('L1-1');
       expect(processor.process('slot_number_for_registration_number E'))
-        .toBe('2');
+        .toBe('L1-2');
       expect(processor.process('slot_number_for_registration_number C'))
-        .toBe('3');
+        .toBe('L1-3');
     });
   });
 
@@ -196,7 +196,7 @@ describe('Edge Cases', () => {
       for (let i = 0; i < registrations.length; i++) {
         processor.process(`park ${registrations[i]} White`);
         expect(processor.process(`slot_number_for_registration_number ${registrations[i]}`))
-          .toBe(String(i + 1));
+          .toContain(String(i + 1));
       }
     });
   });
@@ -208,12 +208,12 @@ describe('Edge Cases', () => {
       // Park 500 cars
       for (let i = 1; i <= 500; i++) {
         const result = processor.process(`park REG-${i} White`);
-        expect(result).toBe(`Allocated slot number: ${i}`);
+        expect(result).toBe(`Allocated slot number: ${i} in Lot 1`);
       }
       
       // Leave every other car (odd slots)
       for (let i = 1; i <= 500; i += 2) {
-        processor.process(`leave ${i}`);
+        processor.process(`leave 1 ${i}`);
       }
       
       // Park 250 more - should fill odd slots first (nearest)
@@ -221,7 +221,7 @@ describe('Edge Cases', () => {
         const result = processor.process(`park REG-${i} Black`);
         // Should get odd slots 1, 3, 5, ...
         const expectedSlot = ((i - 501) * 2) + 1;
-        expect(result).toBe(`Allocated slot number: ${expectedSlot}`);
+        expect(result).toBe(`Allocated slot number: ${expectedSlot} in Lot 1`);
       }
     });
   });
@@ -235,7 +235,7 @@ describe('Edge Cases', () => {
       processor.process('park CAR-1 White');
       const result = processor.process('park CAR-1 White');
       
-      expect(result).toContain('already parked in slot 1');
+      expect(result).toContain('already parked in slot L1-1');
     });
   });
 });

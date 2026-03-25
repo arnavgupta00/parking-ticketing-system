@@ -1,5 +1,5 @@
 import { CommandProcessor } from '../../../src/application/CommandProcessor';
-import { ParkingLotService } from '../../../src/domain/services/ParkingLotService';
+import { ParkingLotManager } from '../../../src/domain/services/ParkingLotManager';
 import { OutputFormatter } from '../../../src/infrastructure/cli/OutputFormatter';
 
 /**
@@ -10,10 +10,10 @@ import { OutputFormatter } from '../../../src/infrastructure/cli/OutputFormatter
  */
 describe('CommandProcessor', () => {
   let processor: CommandProcessor;
-  let service: ParkingLotService;
+  let service: ParkingLotManager;
 
   beforeEach(() => {
-    service = new ParkingLotService();
+    service = new ParkingLotManager();
     const formatter = new OutputFormatter(false); // No colors for testing
     processor = new CommandProcessor(service, formatter);
   });
@@ -47,7 +47,7 @@ describe('CommandProcessor', () => {
 
     it('should park a car', () => {
       const result = processor.process('park KA-01-HH-1234 White');
-      expect(result).toBe('Allocated slot number: 1');
+      expect(result).toBe('Allocated slot number: 1 in Lot 1');
     });
 
     it('should handle missing arguments', () => {
@@ -60,12 +60,12 @@ describe('CommandProcessor', () => {
         processor.process(`park REG-${i} White`);
       }
       const result = processor.process('park EXTRA White');
-      expect(result).toBe('Sorry, parking lot is full');
+      expect(result).toBe('Sorry, all parking lots are full');
     });
 
     it('should require parking lot to be created first', () => {
       const newProcessor = new CommandProcessor(
-        new ParkingLotService(),
+        new ParkingLotManager(),
         new OutputFormatter(false)
       );
       const result = newProcessor.process('park KA-01-HH-1234 White');
@@ -80,8 +80,8 @@ describe('CommandProcessor', () => {
     });
 
     it('should free a slot', () => {
-      const result = processor.process('leave 1');
-      expect(result).toBe('Slot number 1 is free.');
+      const result = processor.process('leave 1 1');
+      expect(result).toBe('Slot number 1 in Lot 1 is free.');
     });
 
     it('should handle missing slot number', () => {
@@ -90,7 +90,7 @@ describe('CommandProcessor', () => {
     });
 
     it('should handle invalid slot number', () => {
-      const result = processor.process('leave abc');
+      const result = processor.process('leave 1 abc');
       expect(result).toContain('positive number');
     });
   });
@@ -154,7 +154,7 @@ describe('CommandProcessor', () => {
 
     it('should find slots by color', () => {
       const result = processor.process('slot_numbers_for_cars_with_colour White');
-      expect(result).toBe('1, 2');
+      expect(result).toBe('L1-1, L1-2');
     });
 
     it('should return not found for non-existent color', () => {
@@ -172,7 +172,7 @@ describe('CommandProcessor', () => {
 
     it('should find slot by registration', () => {
       const result = processor.process('slot_number_for_registration_number KA-01-HH-1234');
-      expect(result).toBe('1');
+      expect(result).toBe('L1-1');
     });
 
     it('should return not found for non-existent registration', () => {
@@ -214,7 +214,7 @@ describe('CommandProcessor', () => {
     it('should handle extra whitespace between arguments', () => {
       processor.process('create_parking_lot 6');
       const result = processor.process('park   KA-01-HH-1234    White');
-      expect(result).toBe('Allocated slot number: 1');
+      expect(result).toBe('Allocated slot number: 1 in Lot 1');
     });
   });
 
@@ -228,7 +228,7 @@ describe('CommandProcessor', () => {
         'park KA-01-HH-7777 Red',
         'park KA-01-HH-2701 Blue',
         'park KA-01-HH-3141 Black',
-        'leave 4',
+        'leave 1 4',
         'status',
         'park KA-01-P-333 White',
         'park DL-12-AA-9999 White',
@@ -240,20 +240,20 @@ describe('CommandProcessor', () => {
 
       const expectedOutputs = [
         'Created a parking lot with 6 slots',
-        'Allocated slot number: 1',
-        'Allocated slot number: 2',
-        'Allocated slot number: 3',
-        'Allocated slot number: 4',
-        'Allocated slot number: 5',
-        'Allocated slot number: 6',
-        'Slot number 4 is free.',
+        'Allocated slot number: 1 in Lot 1',
+        'Allocated slot number: 2 in Lot 1',
+        'Allocated slot number: 3 in Lot 1',
+        'Allocated slot number: 4 in Lot 1',
+        'Allocated slot number: 5 in Lot 1',
+        'Allocated slot number: 6 in Lot 1',
+        'Slot number 4 in Lot 1 is free.',
         // Status output will be verified separately
         null,
-        'Allocated slot number: 4',
-        'Sorry, parking lot is full',
+        'Allocated slot number: 4 in Lot 1',
+        'Sorry, all parking lots are full',
         'KA-01-HH-1234, KA-01-HH-9999, KA-01-P-333',
-        '1, 2, 4',
-        '6',
+        'L1-1, L1-2, L1-4',
+        'L1-6',
         'Not found',
       ];
 

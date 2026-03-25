@@ -1,0 +1,19 @@
+create_parking_lot 3
+create_parking_lot 3
+create_parking_lot 3
+dispatch_rule fill_first
+park CAR-1 White
+park CAR-2 White
+park CAR-3 Black
+park CAR-4 Red
+status
+leave 1 2
+park CAR-5 Blue
+status
+registration_numbers_for_cars_with_colour White
+slot_numbers_for_cars_with_colour White
+slot_number_for_registration_number CAR-5
+dispatch_rule even_distribution
+park CAR-6 Green
+park CAR-7 Green
+status

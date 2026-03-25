@@ -1,5 +1,7 @@
-import { ParkingLotService } from '../domain/services/ParkingLotService';
+import { ParkingLotManager } from '../domain/services/ParkingLotManager';
 import { OutputFormatter } from '../infrastructure/cli/OutputFormatter';
+import { EvenDistributionStrategy } from '../domain/strategies/EvenDistributionStrategy';
+import { FillFirstStrategy } from '../domain/strategies/FillFirstStrategy';
 import * as fs from 'fs';
 import * as readline from 'readline';
 
@@ -10,15 +12,14 @@ import * as readline from 'readline';
  * Each command string gets parsed, validated, and routed to the
  * appropriate service method.
  * 
- * The processor is stateless regarding command history - it just
- * processes whatever you give it. State lives in ParkingLotService.
+ * Now supports multi-lot operations with dispatcher-based allocation.
  */
 export class CommandProcessor {
-  private parkingService: ParkingLotService;
+  private manager: ParkingLotManager;
   private formatter: OutputFormatter;
 
-  constructor(parkingService: ParkingLotService, formatter: OutputFormatter) {
-    this.parkingService = parkingService;
+  constructor(manager: ParkingLotManager, formatter: OutputFormatter) {
+    this.manager = manager;
     this.formatter = formatter;
   }
 
@@ -66,6 +67,9 @@ export class CommandProcessor {
       case 'slot_number_for_registration_number':
         return this.handleSlotByRegistration(args);
 
+      case 'dispatch_rule':
+        return this.handleDispatchRule(args);
+
       case 'load':
       case 'run':
         return this.handleLoadFile(args);
@@ -78,7 +82,6 @@ export class CommandProcessor {
 
       default:
         // For unknown commands, we stay silent per requirements
-        // But in a real system, you might want to show an error
         return '';
     }
   }
@@ -96,130 +99,163 @@ export class CommandProcessor {
       return this.formatter.formatError('Capacity must be a positive number');
     }
 
-    this.parkingService.createParkingLot(capacity);
+    const lotNumber = this.manager.createParkingLot(capacity);
     return this.formatter.formatParkingLotCreated(capacity);
   }
 
   /**
    * Handles: park <registration_number> <color>
+   * Dispatcher automatically selects the lot based on current rule.
    */
   private handlePark(args: string[]): string {
     if (args.length < 2) {
       return this.formatter.formatError('Usage: park <registration_number> <color>');
     }
 
-    // Check if parking lot exists
-    if (!this.parkingService.isInitialized()) {
+    // Check if any parking lots exist
+    if (!this.manager.hasLots()) {
       return this.formatter.formatError('Please create a parking lot first');
     }
 
     const registrationNumber = args[0];
     const color = args[1];
 
-    const slotNumber = this.parkingService.park(registrationNumber, color);
+    const result = this.manager.park(registrationNumber, color);
 
-    if (slotNumber === null) {
-      return this.formatter.formatParkingLotFull();
+    if (result === null) {
+      return this.formatter.formatAllLotsFull();
     }
 
-    if (slotNumber === -1) {
-      // Duplicate registration - find existing slot
-      const existingSlot = this.parkingService.getSlotNumberByRegistration(registrationNumber);
+    if (result === -1) {
+      // Duplicate registration - find existing location
+      const existingSlot = this.manager.getSlotNumberByRegistration(registrationNumber);
       return this.formatter.formatDuplicateRegistration(registrationNumber, existingSlot!);
     }
 
-    return this.formatter.formatSlotAllocated(slotNumber);
+    return this.formatter.formatSlotAllocatedWithLot(result.slotNumber, result.lotNumber);
   }
 
   /**
-   * Handles: leave <slot_number>
+   * Handles: leave <lot_number> <slot_number>
    */
   private handleLeave(args: string[]): string {
-    if (args.length < 1) {
-      return this.formatter.formatError('Usage: leave <slot_number>');
+    if (args.length < 2) {
+      return this.formatter.formatError('Usage: leave <lot_number> <slot_number>');
     }
 
-    const slotNumber = parseInt(args[0], 10);
+    const lotNumber = parseInt(args[0], 10);
+    const slotNumber = parseInt(args[1], 10);
+    
+    if (isNaN(lotNumber) || lotNumber <= 0) {
+      return this.formatter.formatError('Lot number must be a positive number');
+    }
+    
     if (isNaN(slotNumber) || slotNumber <= 0) {
       return this.formatter.formatError('Slot number must be a positive number');
     }
 
-    // Check if parking lot exists
-    if (!this.parkingService.isInitialized()) {
+    // Check if parking lots exist
+    if (!this.manager.hasLots()) {
       return this.formatter.formatError('Please create a parking lot first');
     }
 
-    const success = this.parkingService.leave(slotNumber);
+    const success = this.manager.leave(lotNumber, slotNumber);
 
-    if (success) {
-      return this.formatter.formatSlotFreed(slotNumber);
-    }
-
-    // Silent failure for invalid/empty slots as per requirements
-    return this.formatter.formatSlotFreed(slotNumber);
+    // Always return freed message as per original behavior
+    return this.formatter.formatSlotFreedWithLot(slotNumber, lotNumber);
   }
 
   /**
    * Handles: status
+   * Shows all lots with clear separators.
    */
   private handleStatus(): string {
-    if (!this.parkingService.isInitialized()) {
+    if (!this.manager.hasLots()) {
       return this.formatter.formatError('Please create a parking lot first');
     }
 
-    const entries = this.parkingService.getStatus();
-    return this.formatter.formatStatus(entries);
+    const entries = this.manager.getStatus();
+    return this.formatter.formatStatusMultiLot(entries);
   }
 
   /**
    * Handles: registration_numbers_for_cars_with_colour <color>
+   * Searches across all parking lots.
    */
   private handleRegistrationsByColor(args: string[]): string {
     if (args.length < 1) {
       return this.formatter.formatError('Usage: registration_numbers_for_cars_with_colour <color>');
     }
 
-    if (!this.parkingService.isInitialized()) {
+    if (!this.manager.hasLots()) {
       return this.formatter.formatNotFound();
     }
 
     const color = args[0];
-    const registrations = this.parkingService.getRegistrationNumbersByColor(color);
+    const registrations = this.manager.getRegistrationNumbersByColor(color);
     return this.formatter.formatRegistrationNumbers(registrations);
   }
 
   /**
    * Handles: slot_numbers_for_cars_with_colour <color>
+   * Searches across all lots, returns with lot prefix (L1-1, L2-3).
    */
   private handleSlotsByColor(args: string[]): string {
     if (args.length < 1) {
       return this.formatter.formatError('Usage: slot_numbers_for_cars_with_colour <color>');
     }
 
-    if (!this.parkingService.isInitialized()) {
+    if (!this.manager.hasLots()) {
       return this.formatter.formatNotFound();
     }
 
     const color = args[0];
-    const slots = this.parkingService.getSlotNumbersByColor(color);
-    return this.formatter.formatSlotNumbers(slots);
+    const slots = this.manager.getSlotNumbersByColor(color);
+    return this.formatter.formatSlotNumbersWithLot(slots);
   }
 
   /**
    * Handles: slot_number_for_registration_number <registration>
+   * Returns with lot prefix (L2-4).
    */
   private handleSlotByRegistration(args: string[]): string {
     if (args.length < 1) {
       return this.formatter.formatError('Usage: slot_number_for_registration_number <registration>');
     }
 
-    if (!this.parkingService.isInitialized()) {
+    if (!this.manager.hasLots()) {
       return this.formatter.formatNotFound();
     }
 
     const registration = args[0];
-    const slot = this.parkingService.getSlotNumberByRegistration(registration);
-    return this.formatter.formatSlotNumber(slot);
+    const slot = this.manager.getSlotNumberByRegistration(registration);
+    return this.formatter.formatSlotNumberWithLot(slot);
+  }
+
+  /**
+   * Handles: dispatch_rule <rule>
+   * Sets the dispatcher's allocation strategy.
+   */
+  private handleDispatchRule(args: string[]): string {
+    if (args.length < 1) {
+      return this.formatter.formatError('Usage: dispatch_rule <even_distribution|fill_first>');
+    }
+
+    const rule = args[0].toLowerCase();
+    const dispatcher = this.manager.getDispatcher();
+
+    switch (rule) {
+      case 'even_distribution':
+        dispatcher.setStrategy(new EvenDistributionStrategy());
+        return this.formatter.formatDispatchRuleSet('Even Distribution');
+
+      case 'fill_first':
+        dispatcher.setStrategy(new FillFirstStrategy());
+        return this.formatter.formatDispatchRuleSet('Fill First');
+
+      default:
+        return this.formatter.formatError('Invalid rule. Use: even_distribution or fill_first');
+    }
   }
 
   /**
